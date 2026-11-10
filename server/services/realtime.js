@@ -4,6 +4,7 @@ import { Server } from "socket.io";
 import db from "../db.js";
 import { verifyToken } from "../middleware/auth.js";
 import { listSegments, saveFinalSegment } from "./segments.js";
+import { onSegmentSaved } from "./extraction.js";
 
 let io = null;
 
@@ -60,6 +61,7 @@ export function initRealtime(httpServer) {
       });
       if (!segment) return;
       emitToMeeting(id, "transcript:final", { segment });
+      onSegmentSaved(segment); // feed the AI extraction buffer
     });
 
     socket.on("disconnect", () => {

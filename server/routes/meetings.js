@@ -8,6 +8,14 @@ import { HttpError, handle } from "../middleware/errors.js";
 import { emitToMeeting } from "../services/realtime.js";
 import { listSegments, parseTranscriptText, saveFinalSegment } from "../services/segments.js";
 import { listDemoFiles, playDemo, stopDemo } from "../services/demoPlayer.js";
+import {
+  flushMeeting,
+  getMeetingItems,
+  processUploadChunks,
+} from "../services/extraction.js";
+import { approveDecision } from "../services/lifecycle.js";
+import { shapeDecision } from "../services/items.js";
+import { generateMeetingReport, getMeetingReport } from "../services/reports.js";
 
 const router = Router();
 const upload = multer({
@@ -27,17 +35,51 @@ function participantsOf(meetingId) {
     .all(meetingId);
 }
 
-/** Shape returned by GET /meetings/:id (items stay empty until Step 4/5). */
+/** Pending relation flags whose NEW decision belongs to this meeting. */
+function meetingRelations(meetingId) {
+  return db
+    .prepare(
+      `SELECT r.*,
+              nd.title AS new_title, nd.status AS new_status, nd.meeting_id AS new_meeting_id,
+              nd.description AS new_description, nd.certainty AS new_certainty,
+              od.title AS old_title, od.status AS old_status, od.meeting_id AS old_meeting_id,
+              od.description AS old_description, od.certainty AS old_certainty,
+              nm.title AS new_meeting_title, nm.scheduled_at AS new_meeting_scheduled_at,
+              nm.started_at AS new_meeting_started_at,
+              om.title AS old_meeting_title, om.scheduled_at AS old_meeting_scheduled_at,
+              om.started_at AS old_meeting_started_at
+       FROM relations r
+       JOIN decisions nd ON nd.id = r.new_decision_id
+       JOIN decisions od ON od.id = r.old_decision_id
+       JOIN meetings nm ON nm.id = nd.meeting_id
+       JOIN meetings om ON om.id = od.meeting_id
+       WHERE nd.meeting_id = ? AND r.review_status = 'PENDING'
+       ORDER BY r.created_at ASC, r.id ASC`
+    )
+    .all(meetingId)
+    .map((row) => {
+      let changed_fields = [];
+      try {
+        changed_fields = row.changed_fields ? JSON.parse(row.changed_fields) : [];
+      } catch {
+        changed_fields = [];
+      }
+      return { ...row, changed_fields };
+    });
+}
+
+/** Shape returned by GET /meetings/:id — includes extracted items. */
 function meetingDetail(meeting) {
+  const items = getMeetingItems(meeting.id);
   return {
     ...meeting,
     participants: participantsOf(meeting.id),
     transcript: listSegments(meeting.id),
-    decisions: [],
-    actionItems: [],
-    blockers: [],
-    questions: [],
-    relations: [],
+    decisions: items.decisions,
+    actionItems: items.actionItems,
+    blockers: items.blockers,
+    questions: items.questions,
+    relations: meetingRelations(meeting.id),
   };
 }
 
@@ -121,22 +163,80 @@ router.post("/:id/start", (req, res) => {
   res.json(meetingDetail(updated));
 });
 
-router.post("/:id/end", (req, res) => {
+router.post(
+  "/:id/end",
+  handle(async (req, res) => {
+    const meeting = getMeetingOrThrow(Number(req.params.id));
+    if (meeting.status !== "LIVE") {
+      throw new HttpError(409, `Cannot end a meeting that is ${meeting.status}`);
+    }
+
+    // Stop any running demo so lines don't keep appearing after End
+    stopDemo(meeting.id);
+    // Drain the AI buffer before we mark the meeting ended
+    await flushMeeting(meeting.id);
+
+    db.prepare(
+      `UPDATE meetings SET status = 'ENDED', ended_at = datetime('now') WHERE id = ?`
+    ).run(meeting.id);
+
+    // SPEC §8.5 — build the summary report once the meeting is closed
+    try {
+      await generateMeetingReport(meeting.id);
+    } catch (err) {
+      console.warn("[report]", err.message || err);
+    }
+
+    const updated = getMeetingOrThrow(meeting.id);
+    emitToMeeting(meeting.id, "meeting:status", { status: "ENDED" });
+    res.json(meetingDetail(updated));
+  })
+);
+
+// GET /api/meetings/:id/report
+router.get("/:id/report", (req, res) => {
   const meeting = getMeetingOrThrow(Number(req.params.id));
-  if (meeting.status !== "LIVE") {
-    throw new HttpError(409, `Cannot end a meeting that is ${meeting.status}`);
+  const report = getMeetingReport(meeting.id);
+  if (!report) throw new HttpError(404, "No report yet — end the meeting or regenerate");
+  res.json({
+    meetingId: meeting.id,
+    meetingTitle: meeting.title,
+    summary_md: report.summary_md,
+    created_at: report.created_at,
+  });
+});
+
+// POST /api/meetings/:id/report/regenerate
+router.post(
+  "/:id/report/regenerate",
+  handle(async (req, res) => {
+    const meeting = getMeetingOrThrow(Number(req.params.id));
+    const report = await generateMeetingReport(meeting.id);
+    res.json({
+      meetingId: meeting.id,
+      meetingTitle: meeting.title,
+      summary_md: report.summary_md,
+      created_at: report.created_at,
+    });
+  })
+);
+
+// Approve every PROPOSED decision in this meeting that the AI marked AGREED
+router.post("/:id/approve-agreed", (req, res) => {
+  const meeting = getMeetingOrThrow(Number(req.params.id));
+  const rows = db
+    .prepare(
+      `SELECT id FROM decisions WHERE meeting_id = ? AND status = 'PROPOSED' AND certainty = 'AGREED'`
+    )
+    .all(meeting.id);
+
+  const updated = [];
+  for (const row of rows) {
+    const d = shapeDecision(approveDecision(row.id, req.user.id));
+    emitToMeeting(meeting.id, "item:updated", { itemType: "decision", item: d });
+    updated.push(d);
   }
-
-  // Stop any running demo so lines don't keep appearing after End
-  stopDemo(meeting.id);
-
-  db.prepare(
-    `UPDATE meetings SET status = 'ENDED', ended_at = datetime('now') WHERE id = ?`
-  ).run(meeting.id);
-
-  const updated = getMeetingOrThrow(meeting.id);
-  emitToMeeting(meeting.id, "meeting:status", { status: "ENDED" });
-  res.json(meetingDetail(updated));
+  res.json({ approved: updated.length, decisions: updated });
 });
 
 // --------------------------------------------------------------------------- upload .txt / .docx
@@ -181,6 +281,9 @@ router.post(
     for (const segment of saved) {
       emitToMeeting(meeting.id, "transcript:final", { segment });
     }
+
+    // Upload mode: extract in chunks of 15 lines (does not wait for the 4-line buffer)
+    await processUploadChunks(meeting.id, saved);
 
     res.json({ imported: saved.length, segments: saved });
   })

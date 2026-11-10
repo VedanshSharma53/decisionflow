@@ -5,6 +5,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseTranscriptText, saveFinalSegment } from "./segments.js";
 import { emitToMeeting } from "./realtime.js";
+import { onSegmentSaved } from "./extraction.js";
 import { HttpError } from "../middleware/errors.js";
 
 const DEMO_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "demo");
@@ -60,7 +61,10 @@ export function playDemo(meetingId, file, speed = 1) {
       speaker: line.speaker,
       source: "DEMO",
     });
-    if (segment) emitToMeeting(meetingId, "transcript:final", { segment });
+    if (segment) {
+      emitToMeeting(meetingId, "transcript:final", { segment });
+      onSegmentSaved(segment); // feed the AI extraction buffer
+    }
   }, intervalMs);
 
   players.set(Number(meetingId), state);
