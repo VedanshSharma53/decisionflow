@@ -48,9 +48,63 @@ body {
   animation: df-mic-pulse 1.1s ease-in-out infinite;
 }
 
+/* Brief flash when a new extracted card appears */
+@keyframes df-item-flash {
+  0% {
+    background-color: rgb(238 242 255); /* indigo-50 */
+  }
+  100% {
+    background-color: #fff;
+  }
+}
+.item-flash {
+  animation: df-item-flash 1.2s ease-out;
+}
+
+/* Simple Markdown styling for report pages (no typography plugin needed) */
+.prose h1 {
+  @apply mb-3 text-2xl font-semibold text-slate-800;
+}
+.prose h2 {
+  @apply mb-2 mt-5 text-lg font-semibold text-slate-800;
+}
+.prose h3 {
+  @apply mb-1 mt-4 text-base font-semibold text-slate-700;
+}
+.prose p,
+.prose li {
+  @apply text-slate-700;
+}
+.prose ul {
+  @apply my-2 list-disc space-y-1 pl-5;
+}
+.prose ol {
+  @apply my-2 list-decimal space-y-1 pl-5;
+}
+.prose table {
+  @apply my-3 w-full border-collapse text-left text-sm;
+}
+.prose th,
+.prose td {
+  @apply border border-slate-200 px-2 py-1.5;
+}
+.prose th {
+  @apply bg-slate-50 font-medium text-slate-600;
+}
+.prose strong {
+  @apply font-semibold text-slate-800;
+}
+
 /* When printing a report (Save as PDF), hide the app chrome */
 @media print {
   .no-print {
     display: none !important;
+  }
+  body {
+    background: white !important;
+  }
+  .card {
+    box-shadow: none !important;
+    border-color: #e2e8f0 !important;
   }
 }

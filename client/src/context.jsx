@@ -12,11 +12,27 @@ export function AppProvider({ children }) {
   const [loading, setLoading] = useState(true);
   const [projects, setProjects] = useState([]);
   const [projectId, setProjectIdState] = useState(() => Number(localStorage.getItem(PROJECT_KEY)) || null);
+  const [pendingReviewCount, setPendingReviewCount] = useState(0);
 
   const setProjectId = (id) => {
     setProjectIdState(id);
     if (id) localStorage.setItem(PROJECT_KEY, String(id));
   };
+
+  const refreshPendingReviews = useCallback(async (pid = projectId) => {
+    if (!pid || !getToken()) {
+      setPendingReviewCount(0);
+      return 0;
+    }
+    try {
+      const list = await api.get(`/relations?projectId=${pid}&status=PENDING`);
+      setPendingReviewCount(list.length);
+      return list.length;
+    } catch {
+      setPendingReviewCount(0);
+      return 0;
+    }
+  }, [projectId]);
 
   const loadProjects = useCallback(async () => {
     const list = await api.get("/projects");
@@ -46,6 +62,15 @@ export function AppProvider({ children }) {
       .finally(() => setLoading(false));
   }, [loadProjects]);
 
+  // Keep the sidebar red count in sync with the selected project
+  useEffect(() => {
+    if (!user || !projectId) {
+      setPendingReviewCount(0);
+      return;
+    }
+    refreshPendingReviews(projectId);
+  }, [user, projectId, refreshPendingReviews]);
+
   async function login(email, password) {
     const { token, user } = await api.post("/auth/login", { email, password });
     setToken(token);
@@ -64,13 +89,27 @@ export function AppProvider({ children }) {
     setToken(null);
     setUser(null);
     setProjects([]);
+    setPendingReviewCount(0);
   }
 
   const project = projects.find((p) => p.id === projectId) || null;
 
   return (
     <AppContext.Provider
-      value={{ user, loading, login, register, logout, projects, project, projectId, setProjectId, loadProjects }}
+      value={{
+        user,
+        loading,
+        login,
+        register,
+        logout,
+        projects,
+        project,
+        projectId,
+        setProjectId,
+        loadProjects,
+        pendingReviewCount,
+        refreshPendingReviews,
+      }}
     >
       {children}
     </AppContext.Provider>

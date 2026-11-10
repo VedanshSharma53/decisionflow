@@ -8,7 +8,13 @@ import Projects from "./pages/Projects.jsx";
 import Meetings from "./pages/Meetings.jsx";
 import NewMeeting from "./pages/NewMeeting.jsx";
 import LiveMeeting from "./pages/LiveMeeting.jsx";
-import Placeholder from "./pages/Placeholder.jsx";
+import Decisions from "./pages/Decisions.jsx";
+import DecisionDetail from "./pages/DecisionDetail.jsx";
+import ActionItems from "./pages/ActionItems.jsx";
+import ReviewQueue from "./pages/ReviewQueue.jsx";
+import Insights from "./pages/Insights.jsx";
+import MeetingReport from "./pages/MeetingReport.jsx";
+import TemplateReport from "./pages/TemplateReport.jsx";
 
 // Pages that need a login are wrapped in <Protected>
 function Protected({ children }) {
@@ -36,11 +42,14 @@ export default function App() {
         <Route path="/meetings" element={<Meetings />} />
         <Route path="/meetings/new" element={<NewMeeting />} />
         <Route path="/meetings/:id" element={<LiveMeeting />} />
-        {/* Built in later steps (see docs/CURSOR_BUILD_GUIDE.md) */}
-        <Route path="/decisions" element={<Placeholder title="Decisions" step={5} />} />
-        <Route path="/actions" element={<Placeholder title="Action Items" step={5} />} />
-        <Route path="/reviews" element={<Placeholder title="Review Queue" step={6} />} />
-        <Route path="/insights" element={<Placeholder title="Insights" step={7} />} />
+        <Route path="/meetings/:id/report" element={<MeetingReport />} />
+        <Route path="/decisions" element={<Decisions />} />
+        <Route path="/decisions/:id" element={<DecisionDetail />} />
+        <Route path="/actions" element={<ActionItems />} />
+        <Route path="/reviews" element={<ReviewQueue />} />
+        <Route path="/insights" element={<Insights />} />
+        <Route path="/reports/decision-log" element={<TemplateReport kind="decision-log" />} />
+        <Route path="/reports/actions" element={<TemplateReport kind="actions" />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />

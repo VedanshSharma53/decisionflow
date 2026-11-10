@@ -9,6 +9,9 @@ import { getSocket } from "../socket.js";
 import { createSpeechRecognizer, isSpeechSupported } from "../speech.js";
 import StatusBadge from "../components/StatusBadge.jsx";
 import TranscriptPanel from "../components/TranscriptPanel.jsx";
+import ExtractedItemsPanel from "../components/ExtractedItemsPanel.jsx";
+import ReviewCard from "../components/ReviewCard.jsx";
+import RecurringBlockerCard from "../components/RecurringBlockerCard.jsx";
 
 const INPUT_MODES = [
   { id: "TYPE", label: "Type" },
@@ -60,7 +63,7 @@ function SpeakerSelect({ participants, value, onChange }) {
 export default function LiveMeeting() {
   const { id } = useParams();
   const meetingId = Number(id);
-  const { user } = useApp();
+  const { user, refreshPendingReviews } = useApp();
 
   const [meeting, setMeeting] = useState(null);
   const [segments, setSegments] = useState([]);
@@ -74,6 +77,20 @@ export default function LiveMeeting() {
   const [demoPlaying, setDemoPlaying] = useState(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+
+  // Extracted items (Step 4)
+  const [decisions, setDecisions] = useState([]);
+  const [actionItems, setActionItems] = useState([]);
+  const [blockers, setBlockers] = useState([]);
+  const [questions, setQuestions] = useState([]);
+  const [flashIds, setFlashIds] = useState(() => new Set());
+  const [aiState, setAiState] = useState("idle"); // processing | idle | error
+  const [aiLatencyMs, setAiLatencyMs] = useState(null);
+  const [toast, setToast] = useState("");
+  const [editItem, setEditItem] = useState(null); // decision being edited
+  const [editForm, setEditForm] = useState({ title: "", description: "", owner: "" });
+  const [alerts, setAlerts] = useState([]); // pending relation flags for this meeting
+  const [blockerAlerts, setBlockerAlerts] = useState([]); // recurring-blocker alerts
 
   // Microphone state (SPEC §7)
   const [micOn, setMicOn] = useState(false);
@@ -159,10 +176,76 @@ export default function LiveMeeting() {
     if (inputMode !== "MIC" || !isLive) stopMic();
   }, [inputMode, isLive, stopMic]);
 
+  function applyItems(data) {
+    setDecisions(data.decisions || []);
+    setActionItems(data.actionItems || []);
+    setBlockers(data.blockers || []);
+    setQuestions(data.questions || []);
+    setAlerts(data.relations || []);
+  }
+
+  function upsertDecisionEverywhere(item) {
+    if (!item) return;
+    upsertItem(setDecisions, item);
+  }
+
+  function mergeAlertFromFlag({ relation, newDecision, oldDecision }) {
+    if (!relation) return;
+    const enriched = {
+      ...relation,
+      new_title: relation.new_title || newDecision?.title,
+      new_status: relation.new_status || newDecision?.status,
+      new_certainty: relation.new_certainty || newDecision?.certainty,
+      new_meeting_id: relation.new_meeting_id || newDecision?.meeting_id,
+      new_meeting_title: relation.new_meeting_title || meeting?.title,
+      old_title: relation.old_title || oldDecision?.title,
+      old_status: relation.old_status || oldDecision?.status,
+      old_certainty: relation.old_certainty || oldDecision?.certainty,
+      old_meeting_id: relation.old_meeting_id || oldDecision?.meeting_id,
+      old_meeting_title: relation.old_meeting_title || oldDecision?.meeting_title,
+      old_meeting_scheduled_at:
+        relation.old_meeting_scheduled_at || oldDecision?.meeting_scheduled_at,
+      old_meeting_started_at: relation.old_meeting_started_at || oldDecision?.meeting_started_at,
+    };
+    setAlerts((list) => {
+      if (list.some((a) => a.id === enriched.id)) {
+        return list.map((a) => (a.id === enriched.id ? { ...a, ...enriched } : a));
+      }
+      return [...list, enriched];
+    });
+  }
+
+  function upsertItem(setter, item) {
+    setter((list) => {
+      const i = list.findIndex((x) => x.id === item.id);
+      if (i === -1) return [...list, item];
+      const next = list.slice();
+      next[i] = item;
+      return next;
+    });
+  }
+
+  function flashKey(itemType, id) {
+    return `${itemType}-${id}`;
+  }
+
+  function markFlash(itemType, id) {
+    const key = flashKey(itemType, id);
+    setFlashIds((prev) => new Set(prev).add(key));
+    setTimeout(() => {
+      setFlashIds((prev) => {
+        const next = new Set(prev);
+        next.delete(key);
+        return next;
+      });
+    }, 1300);
+  }
+
   const loadMeeting = useCallback(async () => {
     const data = await api.get(`/meetings/${meetingId}`);
     setMeeting(data);
     setSegments(data.transcript || []);
+    applyItems(data);
     setSpeaker((current) =>
       current === "Speaker" && data.participants?.length ? data.participants[0].name : current
     );
@@ -215,12 +298,57 @@ export default function LiveMeeting() {
     };
     const onAiStatus = (payload) => {
       if (payload?.message?.startsWith("Demo finished")) setDemoPlaying(false);
+      if (payload?.state) setAiState(payload.state);
+      if (payload?.latencyMs != null) setAiLatencyMs(payload.latencyMs);
+      if (payload?.state === "error") {
+        setToast(payload.message || "AI extraction failed — meeting continues");
+        setTimeout(() => setToast(""), 5000);
+      }
+    };
+    const onItemCreated = ({ itemType, item }) => {
+      if (itemType === "decision") upsertItem(setDecisions, item);
+      else if (itemType === "action") upsertItem(setActionItems, item);
+      else if (itemType === "blocker") upsertItem(setBlockers, item);
+      else if (itemType === "question") upsertItem(setQuestions, item);
+      markFlash(itemType, item.id);
+    };
+    const onItemUpdated = ({ itemType, item }) => {
+      if (itemType === "decision") upsertItem(setDecisions, item);
+      else if (itemType === "action") upsertItem(setActionItems, item);
+      else if (itemType === "blocker") upsertItem(setBlockers, item);
+      else if (itemType === "question") upsertItem(setQuestions, item);
+    };
+    const onRelationFlagged = (payload) => {
+      mergeAlertFromFlag(payload);
+      refreshPendingReviews?.();
+    };
+    const onRelationReviewed = ({ relation, newDecision, oldDecision }) => {
+      if (relation?.id) {
+        setAlerts((list) => list.filter((a) => a.id !== relation.id));
+      }
+      upsertDecisionEverywhere(newDecision);
+      upsertDecisionEverywhere(oldDecision);
+      refreshPendingReviews?.();
+    };
+    const onBlockerRecurring = (payload) => {
+      if (!payload?.blocker) return;
+      setBlockerAlerts((list) => {
+        if (list.some((a) => a.blocker?.id === payload.blocker.id)) return list;
+        return [...list, payload];
+      });
+      // Also refresh the blockers list badge/card
+      upsertItem(setBlockers, payload.blocker);
     };
 
     socket.on("transcript:final", onFinal);
     socket.on("transcript:interim", onInterim);
     socket.on("meeting:status", onStatus);
     socket.on("ai:status", onAiStatus);
+    socket.on("item:created", onItemCreated);
+    socket.on("item:updated", onItemUpdated);
+    socket.on("relation:flagged", onRelationFlagged);
+    socket.on("relation:reviewed", onRelationReviewed);
+    socket.on("blocker:recurring", onBlockerRecurring);
 
     return () => {
       cancelled = true;
@@ -228,8 +356,13 @@ export default function LiveMeeting() {
       socket.off("transcript:interim", onInterim);
       socket.off("meeting:status", onStatus);
       socket.off("ai:status", onAiStatus);
+      socket.off("item:created", onItemCreated);
+      socket.off("item:updated", onItemUpdated);
+      socket.off("relation:flagged", onRelationFlagged);
+      socket.off("relation:reviewed", onRelationReviewed);
+      socket.off("blocker:recurring", onBlockerRecurring);
     };
-  }, [meetingId, loadMeeting, stopMic]);
+  }, [meetingId, loadMeeting, stopMic, refreshPendingReviews]);
 
   async function startMeeting() {
     setBusy(true);
@@ -347,6 +480,58 @@ export default function LiveMeeting() {
     setMicPaused(false);
   }
 
+  async function approveDecision(item) {
+    try {
+      const updated = await api.post(`/decisions/${item.id}/approve`);
+      upsertItem(setDecisions, updated);
+    } catch (err) {
+      setToast(err.message);
+      setTimeout(() => setToast(""), 4000);
+    }
+  }
+
+  async function rejectDecision(item) {
+    try {
+      const updated = await api.post(`/decisions/${item.id}/reject`, { reason: "Rejected in live meeting" });
+      upsertItem(setDecisions, updated);
+    } catch (err) {
+      setToast(err.message);
+      setTimeout(() => setToast(""), 4000);
+    }
+  }
+
+  function openEdit(item) {
+    setEditItem(item);
+    setEditForm({
+      title: item.title || "",
+      description: item.description || "",
+      owner: item.owner || "",
+    });
+  }
+
+  async function saveEdit(e) {
+    e.preventDefault();
+    if (!editItem) return;
+    try {
+      const updated = await api.patch(`/decisions/${editItem.id}`, editForm);
+      upsertItem(setDecisions, updated);
+      setEditItem(null);
+    } catch (err) {
+      setToast(err.message);
+      setTimeout(() => setToast(""), 4000);
+    }
+  }
+
+  async function approveAgreed() {
+    try {
+      const res = await api.post(`/meetings/${meetingId}/approve-agreed`);
+      for (const d of res.decisions || []) upsertItem(setDecisions, d);
+    } catch (err) {
+      setToast(err.message);
+      setTimeout(() => setToast(""), 4000);
+    }
+  }
+
   if (!meeting && !error) {
     return <div className="p-4 text-slate-500">Loading meeting…</div>;
   }
@@ -381,6 +566,15 @@ export default function LiveMeeting() {
           </div>
         </div>
 
+        {aiState === "processing" && (
+          <span className="text-sm font-medium text-indigo-600">AI processing…</span>
+        )}
+        {aiState !== "processing" && aiLatencyMs != null && (
+          <span className="text-xs text-slate-400" title="Last extraction latency">
+            AI {aiLatencyMs} ms
+          </span>
+        )}
+
         <label className="flex items-center gap-2 text-sm text-slate-600">
           Input
           <select
@@ -407,10 +601,18 @@ export default function LiveMeeting() {
             End meeting
           </button>
         )}
+        {meeting.status === "ENDED" && (
+          <Link to={`/meetings/${meetingId}/report`} className="btn-primary">
+            View report
+          </Link>
+        )}
       </header>
 
       {error && (
         <div className="border-b border-red-100 bg-red-50 px-4 py-2 text-sm text-red-700">{error}</div>
+      )}
+      {toast && (
+        <div className="border-b border-red-100 bg-red-50 px-4 py-2 text-sm text-red-700">{toast}</div>
       )}
 
       {/* Input controls under the header */}
@@ -568,20 +770,95 @@ export default function LiveMeeting() {
           <TranscriptPanel segments={segments} interim={interim} />
         </div>
 
-        <div className="min-h-0 overflow-hidden rounded-xl border border-slate-200 bg-white p-4">
-          <h2 className="font-semibold text-slate-700">Extracted items</h2>
-          <p className="mt-2 text-sm text-slate-500">
-            Decisions, actions, blockers and questions appear here in Step 4 (AI extraction).
-          </p>
+        <div className="min-h-0">
+          <ExtractedItemsPanel
+            decisions={decisions}
+            actionItems={actionItems}
+            blockers={blockers}
+            questions={questions}
+            flashIds={flashIds}
+            onApprove={approveDecision}
+            onReject={rejectDecision}
+            onEdit={openEdit}
+            onApproveAgreed={approveAgreed}
+          />
         </div>
 
-        <div className="min-h-0 overflow-hidden rounded-xl border border-slate-200 bg-white p-4">
-          <h2 className="font-semibold text-slate-700">Alerts</h2>
-          <p className="mt-2 text-sm text-slate-500">
-            Conflict flags and recurring-blocker alerts appear here in Steps 6–7.
-          </p>
+        <div className="flex min-h-0 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white">
+          <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
+            <h2 className="font-semibold text-slate-700">Alerts</h2>
+            <span className="text-xs text-slate-400">
+              {alerts.length + blockerAlerts.length}
+            </span>
+          </div>
+          <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3">
+            {alerts.length === 0 && blockerAlerts.length === 0 ? (
+              <p className="text-sm text-slate-500">
+                No flags yet. Relation reviews and recurring blockers appear here.
+              </p>
+            ) : (
+              <>
+                {blockerAlerts.map((a) => (
+                  <RecurringBlockerCard key={`b-${a.blocker?.id}`} alert={a} />
+                ))}
+                {alerts.map((r) => (
+                  <ReviewCard
+                    key={r.id}
+                    relation={r}
+                    onReviewed={({ relation, newDecision, oldDecision }) => {
+                      setAlerts((list) => list.filter((a) => a.id !== relation?.id));
+                      upsertDecisionEverywhere(newDecision);
+                      upsertDecisionEverywhere(oldDecision);
+                      refreshPendingReviews?.();
+                    }}
+                  />
+                ))}
+              </>
+            )}
+          </div>
         </div>
       </div>
+
+      {editItem && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
+          <form onSubmit={saveEdit} className="card w-full max-w-md space-y-3">
+            <h3 className="font-semibold">Edit decision</h3>
+            <div>
+              <label className="label">Title</label>
+              <input
+                className="input"
+                value={editForm.title}
+                onChange={(e) => setEditForm((f) => ({ ...f, title: e.target.value }))}
+                required
+              />
+            </div>
+            <div>
+              <label className="label">Description</label>
+              <textarea
+                className="input min-h-24"
+                value={editForm.description}
+                onChange={(e) => setEditForm((f) => ({ ...f, description: e.target.value }))}
+              />
+            </div>
+            <div>
+              <label className="label">Owner</label>
+              <input
+                className="input"
+                value={editForm.owner}
+                onChange={(e) => setEditForm((f) => ({ ...f, owner: e.target.value }))}
+              />
+            </div>
+            <div className="flex gap-2">
+              <button type="submit" className="btn-primary">
+                Save
+              </button>
+              <button type="button" className="btn-secondary" onClick={() => setEditItem(null)}>
+                Cancel
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
     </div>
   );
 }
