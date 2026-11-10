@@ -1,6 +1,6 @@
 # DecisionFlow — Project Specification (Simple Stack)
 
-> Put this file in the repo at `docs/SPEC.md`. Every Cursor prompt refers to it.
+> Canonical product rules for DecisionFlow. Setup / demo: see root `README.md` and `docs/GUIDE.md`.
 > Goal: a **simple, working prototype** that a student team can run on any Windows laptop with one command.
 > No Docker, no database server to install, no paid speech service required.
 
@@ -332,7 +332,8 @@ There are also two template-only reports, with no AI:
 
 ### 8.6 Mock mode (no API key needed)
 - Extraction uses regex:
-  - `/(we('ve)? decided|let's go with|final|agreed)/i` → decision
+  - `/(we('ve)? decided|let's go with|let's move|final|agreed)/i` → decision
+    (`let's move` is included so the §11 demo line "let's move the beta launch to 1 April" is caught without the real API)
   - `/\b([A-Z][a-z]+) will (.+?)(?: by (.+?))?[.!]?$/` → action item (owner, deadline text)
   - `/(blocked|waiting on|waiting for|stuck)/i` → blocker
   - a line ending in `?` → question

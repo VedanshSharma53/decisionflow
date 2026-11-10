@@ -1,5 +1,7 @@
-# Secrets
+# Secrets (never commit API keys or JWT secrets)
 .env
+server/.env
+**/.env
 
 # Dependencies and builds
 node_modules/
