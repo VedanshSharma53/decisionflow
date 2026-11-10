@@ -1,0 +1,21 @@
+# Secrets
+.env
+
+# Dependencies and builds
+node_modules/
+dist/
+
+# SQLite database files (re-create with: npm run seed)
+server/data/
+
+# Old Java version (kept only for reference)
+_old_java_version/
+/backend/
+/frontend/
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.log

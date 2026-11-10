@@ -1,0 +1,10 @@
+Priya: Welcome everyone to Sprint 1 Kickoff for Campus Connect.
+Ravi: Ready on the backend side.
+Sneha: Frontend is good to go.
+Arjun: QA will join after the plan is set.
+Priya: We've decided to launch the beta on 15 March.
+Priya: We've decided to use PostgreSQL as the main database.
+Ravi: Login will support email OTP only.
+Priya: Ravi will finish the login API by Friday.
+Priya: Sneha will design onboarding screens by next Wednesday.
+Ravi: We are blocked waiting for college SMTP server access.

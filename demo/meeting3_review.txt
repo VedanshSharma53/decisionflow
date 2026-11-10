@@ -1,0 +1,5 @@
+Priya: Quick review before we close.
+Sneha: About dark mode — yes, we should support it in beta.
+Priya: Agreed, dark mode is in for beta.
+Ravi: Good news: college IT granted SMTP access, so that blocker is resolved.
+Arjun: Regression tests for login are underway.

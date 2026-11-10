@@ -1,0 +1,19 @@
+---
+description: DecisionFlow project rules
+alwaysApply: true
+---
+- This repo builds the app described in docs/SPEC.md. Read the relevant SPEC sections before coding.
+  Do not remove or simplify features from SPEC. If something in SPEC must change, update SPEC too and tell me why.
+- Keep it simple: plain JavaScript (ES modules), React function components with useState/useEffect,
+  Express + Socket.IO + better-sqlite3. No TypeScript, no Docker, no ORM, no Redux, no extra frameworks.
+- Code lives in server/ (backend) and client/ (frontend). Ignore the old Java/TypeScript attempt completely:
+  the _old_java_version/, backend/ and frontend/ folders (if present) are NOT part of this app — never read or edit them.
+- All SQL lives in server/schema.sql and the route/service files. Use prepared statements (db.prepare) — never
+  build SQL by joining user input into strings.
+- The Anthropic API key stays in server/.env only. Never send it to the client. Never commit .env.
+- All decision status changes go only through server/services/lifecycle.js. The AI never changes status directly.
+- Use the official @anthropic-ai/sdk exactly as shown in SPEC §8.1 (output_config.format with zodOutputFormat).
+  Do not use forced tool_choice — current Claude models reject it.
+- After every task: start the app (npm run dev), fix every error in the terminal and browser console,
+  then tell me exactly what to click to test it.
+- Write clear, commented code that students can explain in a viva.

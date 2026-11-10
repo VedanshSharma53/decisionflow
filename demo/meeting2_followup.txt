@@ -1,0 +1,14 @@
+Priya: Welcome to Sprint 2 Planning.
+Ravi: The login API is mostly done, but testing slipped.
+Priya: Given the testing delays, let's move the beta launch to 1 April.
+Sneha: That gives us more room for onboarding screens.
+Arjun: Sounds good from QA.
+Priya: We've decided to add Google sign-in along with OTP.
+Ravi: That means updating the auth service.
+Sneha: I can adjust the login UI once the API is ready.
+Ravi: We're still waiting on the SMTP access from the college IT team.
+Arjun: Arjun will write regression tests for the login flow by 25 March.
+Sneha: Should we support dark mode in beta?
+Priya: Let's park that for now and focus on auth.
+Ravi: By the way, the cafeteria chai was excellent today.
+Sneha: Also, remember to book the lab for Friday.
