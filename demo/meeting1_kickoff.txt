@@ -1,10 +1,38 @@
-Priya: Welcome everyone to Sprint 1 Kickoff for Campus Connect.
-Ravi: Ready on the backend side.
-Sneha: Frontend is good to go.
-Arjun: QA will join after the plan is set.
+Priya: Welcome everyone to the Sprint 1 Kickoff for Campus Connect.
+Ravi: Good morning. Backend is ready to start the sprint.
+Sneha: Frontend is set up on my laptop as well.
+Arjun: QA is here. Happy to help lock the scope today.
+Priya: Quick agenda — launch date, database choice, login method, then owners.
+Ravi: Sounds good. I brought the API notes from last week.
+Sneha: I sketched a few onboarding wireframes if we have time.
+Arjun: Lab booking for Friday is still open, by the way.
+Priya: Noted. First big call — when do we launch the beta?
+Ravi: Mid-March feels realistic if login is simple.
+Sneha: I can finish screens faster if the API is stable.
 Priya: We've decided to launch the beta on 15 March.
-Priya: We've decided to use PostgreSQL as the main database.
-Ravi: Login will support email OTP only.
+Arjun: That date works for the test plan.
+Ravi: Great. Next — what database do we use for the prototype?
+Sneha: Please keep it easy to install on student laptops.
+Priya: We've decided to use SQLite for the prototype database.
+Ravi: Perfect. No Docker, just one file. I like that.
+Arjun: Less setup for QA machines too.
+Priya: Login next. Do we support Google now or later?
+Ravi: For the prototype I want something small and reliable.
+Priya: We've decided — login will support email OTP only.
+Sneha: Okay, I'll design a single OTP screen then.
+Ravi: I'll need the college SMTP details for sending codes.
 Priya: Ravi will finish the login API by Friday.
+Ravi: Understood. I'll target end of day Friday.
 Priya: Sneha will design onboarding screens by next Wednesday.
-Ravi: We are blocked waiting for college SMTP server access.
+Sneha: Next Wednesday is fine. I'll share Figma links in the group.
+Arjun: Once those land, I can draft the smoke-test checklist.
+Ravi: One blocker to flag — we are waiting for college SMTP server access.
+Priya: Please chase IT today and update the channel.
+Ravi: Will do after this call.
+Sneha: By the way, the cafeteria chai was excellent this morning.
+Arjun: True. Also remind everyone to bring ID cards for the lab.
+Priya: Any other open items before we wrap?
+Ravi: Not from backend.
+Sneha: None from design.
+Arjun: None from QA.
+Priya: Thanks everyone. Sprint 1 is kicked off — see you Friday.

@@ -9,6 +9,7 @@ import { errorHandler, notFound } from "./middleware/errors.js";
 import { initRealtime } from "./services/realtime.js";
 import authRoutes from "./routes/auth.js";
 import projectRoutes from "./routes/projects.js";
+import meetingRoutes from "./routes/meetings.js";
 
 const app = express();
 app.use(cors());
@@ -22,6 +23,7 @@ app.use("/api/auth", authRoutes);
 // Everything below needs a login token
 app.use("/api", requireAuth);
 app.use("/api/projects", projectRoutes);
+app.use("/api/meetings", meetingRoutes);
 
 app.use("/api", notFound);
 app.use(errorHandler);

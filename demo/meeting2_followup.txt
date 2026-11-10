@@ -1,14 +1,37 @@
-Priya: Welcome to Sprint 2 Planning.
-Ravi: The login API is mostly done, but testing slipped.
+Priya: Welcome to Sprint 2 Planning for Campus Connect.
+Ravi: Hello. Login API is mostly done, but testing slipped a bit.
+Sneha: Onboarding screens are in review. A few tweaks left.
+Arjun: QA can start deeper tests once the launch date is firm.
+Priya: First, the beta date. 15 March looks tight now.
+Ravi: The OTP flow still needs more end-to-end checks.
+Sneha: Design can absorb a small delay if product needs it.
 Priya: Given the testing delays, let's move the beta launch to 1 April.
-Sneha: That gives us more room for onboarding screens.
-Arjun: Sounds good from QA.
+Arjun: 1 April gives QA a clearer window. Thanks.
+Ravi: Agreed on the new date from the backend side.
+Sneha: I'll shift the marketing mockups to match 1 April.
+Priya: Next topic — login options. Students keep asking for Google.
+Ravi: OTP-only was fine for the prototype, but Google would help adoption.
+Sneha: The login UI can show both buttons without much work.
 Priya: We've decided to add Google sign-in along with OTP.
-Ravi: That means updating the auth service.
-Sneha: I can adjust the login UI once the API is ready.
+Arjun: I'll add Google login cases to the test matrix.
+Ravi: That means updating the auth service this week.
+Sneha: Ping me when the API is ready and I'll adjust the screens.
 Ravi: We're still waiting on the SMTP access from the college IT team.
+Priya: Same blocker as Sprint 1 then. Please escalate again.
+Ravi: I already mailed IT twice. Following up today.
 Arjun: Arjun will write regression tests for the login flow by 25 March.
-Sneha: Should we support dark mode in beta?
-Priya: Let's park that for now and focus on auth.
+Priya: Perfect. Owner and deadline noted.
+Sneha: Should we support dark mode in the beta?
+Priya: Let's park dark mode for now and stay focused on auth.
+Arjun: Fine with me. We can reopen it in the next review.
 Ravi: By the way, the cafeteria chai was excellent today.
-Sneha: Also, remember to book the lab for Friday.
+Sneha: Also, remember to book the lab for Friday afternoon.
+Arjun: I'll book the lab right after this meeting.
+Priya: Any other risks before we close?
+Ravi: Only the SMTP access, which we already flagged.
+Sneha: Nothing else from design.
+Arjun: Nothing else from QA.
+Priya: Great. We have a new launch date, Google sign-in, and a clear test owner.
+Ravi: I'll post the auth update plan in the channel.
+Sneha: I'll refresh the login mock with Google + OTP.
+Priya: Thanks everyone — see you at the next check-in.

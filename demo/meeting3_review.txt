@@ -1,5 +1,26 @@
-Priya: Quick review before we close.
-Sneha: About dark mode — yes, we should support it in beta.
-Priya: Agreed, dark mode is in for beta.
+Priya: Quick review before we close the sprint loop.
+Ravi: Backend update — Google sign-in scaffolding is in progress.
+Sneha: About dark mode — yes, we should support it in the beta.
+Priya: Agreed. Dark mode is in for beta after all.
+Arjun: I'll add a dark-mode visual check to the test list.
 Ravi: Good news: college IT granted SMTP access, so that blocker is resolved.
-Arjun: Regression tests for login are underway.
+Sneha: Fantastic. OTP emails can go out for real now.
+Priya: Please confirm a test OTP reaches a student account today.
+Ravi: I'll send a test code to myself and to Sneha.
+Arjun: Regression tests for the login flow are underway.
+Priya: Any other open questions still hanging?
+Sneha: Not from design. Onboarding is almost final.
+Arjun: None from QA besides polishing the checklist.
+Ravi: None from backend once the SMTP test passes.
+Priya: Small reminder — please keep the lab tidy after Friday's session.
+Sneha: Will do. Also the chai cart is moving next to the library.
+Arjun: Thanks for the heads-up.
+Ravi: One more thing — the staging URL is still pointing at last week's build.
+Priya: Please switch staging to the current branch before the OTP test.
+Sneha: I can update the login banner copy once staging is fresh.
+Arjun: After that I'll rerun the smoke pack.
+Priya: Let's meet again after the SMTP test result.
+Ravi: I'll post the result in the channel by evening.
+Sneha: I'll share the dark-mode toggle mock tomorrow.
+Arjun: And I'll attach the updated test matrix.
+Priya: Perfect. Thanks everyone — meeting adjourned.
